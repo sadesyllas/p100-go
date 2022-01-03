@@ -128,7 +128,7 @@ func (d *P100Device) CheckErrorCode(errorCode int) error {
 	return nil
 }
 
-func (d *P100Device) Handshake() (err error) {
+func (d *P100Device) Handshake(timeoutMS time.Duration) (err error) {
 	privKey, pubKey := GenerateRSAKeys()
 
 	pubPEM := DumpRSAPEM(pubKey)
@@ -140,7 +140,10 @@ func (d *P100Device) Handshake() (err error) {
 		},
 	})
 
-	resp, err := http.Post(d.GetURL(), "application/json", bytes.NewBuffer(payload))
+	client := http.Client{
+		Timeout: timeoutMS * time.Millisecond,
+	}
+	resp, err := client.Post(d.GetURL(), "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		return
 	}
@@ -155,7 +158,7 @@ func (d *P100Device) Handshake() (err error) {
 	}
 
 	json.NewDecoder(resp.Body).Decode(&jsonResp)
-	if err = d.CheckErrorCode(jsonResp.ErrorCode); err != nil {
+	if err = d.CheckErrorCode(jsonResp.ErrorCode); err != nil || jsonResp.Result.Key == "" {
 		return
 	}
 
